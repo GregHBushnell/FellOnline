@@ -1,7 +1,9 @@
 # Based from FishMMO 
-# slightly changed by me normal fishmmo details below
+# slightly changed by me
 # Will be somewhat open sourcing my project, ateast the fishmmo extentions to add and help the amazing set of scripts provided by fish mmo
 
+
+# normal fishmmo details below
 
 
 FishNetworking MMO Template
