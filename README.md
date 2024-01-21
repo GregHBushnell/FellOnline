@@ -1,5 +1,9 @@
 # Based from FishMMO 
-#slightly changed by me normal fishmmo details below
+# slightly changed by me normal fishmmo details below
+# Will be somewhat open sourcing my project, ateast the fishmmo extentions to add and help the amazing set of scripts provided by fish mmo
+
+
+
 FishNetworking MMO Template
 
 [![](https://dcbadge.vercel.app/api/server/9JQEYjkSNk)](https://discord.gg/9JQEYjkSNk)
