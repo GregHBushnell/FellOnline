@@ -9,7 +9,7 @@ namespace FellOnline.Shared
 		public static void Rebuild()
 		{
 			// rebuild world details cache, this includes teleporters, teleporter destinations, spawn points, and other constant scene data
-			FWorldSceneDetailsCache worldDetailsCache = AssetDatabase.LoadAssetAtPath<FWorldSceneDetailsCache>(FWorldSceneDetailsCache.CACHE_FULL_PATH);
+			WorldSceneDetailsCache worldDetailsCache = AssetDatabase.LoadAssetAtPath<WorldSceneDetailsCache>(WorldSceneDetailsCache.CACHE_FULL_PATH);
 			if (worldDetailsCache != null)
 			{
 				worldDetailsCache.Rebuild();
@@ -17,10 +17,10 @@ namespace FellOnline.Shared
 			}
 			else
 			{
-				worldDetailsCache = ScriptableObject.CreateInstance<FWorldSceneDetailsCache>();
+				worldDetailsCache = ScriptableObject.CreateInstance<WorldSceneDetailsCache>();
 				worldDetailsCache.Rebuild();
 				EditorUtility.SetDirty(worldDetailsCache);
-				AssetDatabase.CreateAsset(worldDetailsCache, FWorldSceneDetailsCache.CACHE_FULL_PATH);
+				AssetDatabase.CreateAsset(worldDetailsCache, WorldSceneDetailsCache.CACHE_FULL_PATH);
 			}
 			AssetDatabase.SaveAssets();
 		}

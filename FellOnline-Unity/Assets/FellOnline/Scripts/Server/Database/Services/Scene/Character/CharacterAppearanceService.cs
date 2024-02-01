@@ -14,10 +14,12 @@ namespace FellOnline.Server.DatabaseServices
 		/// </summary>
 		public static void Save(NpgsqlDbContext dbContext, Character character )
 		{
-			if (character == null)
+			if (character == null ||
+				!character.TryGet(out CharacterAppearanceController appearanceController))
 			{
 				return;
-			};
+			}
+
 
 			var appearance = dbContext.CharacterAppearance.FirstOrDefault(a => a.CharacterID == character.ID.Value);
 			if (appearance == null)
@@ -25,18 +27,18 @@ namespace FellOnline.Server.DatabaseServices
 				appearance = new CharacterAppearanceEntity()
 				{
 					CharacterID = character.ID.Value,
-					SkinColor = character.AppearanceController._appearanceDetails.Value.SkinColor,
-					HairID = character.AppearanceController._appearanceDetails.Value.HairID,
-					HairColor = character.AppearanceController._appearanceDetails.Value.HairColor,
+					SkinColor = appearanceController._appearanceDetails.Value.SkinColor,
+					HairID = appearanceController._appearanceDetails.Value.HairID,
+					HairColor = appearanceController._appearanceDetails.Value.HairColor,
 				};
 				dbContext.CharacterAppearance.Add(appearance);
 			}
 			else
 			{
 				appearance.CharacterID = character.ID.Value;
-				appearance.HairID = character.AppearanceController._appearanceDetails.Value.HairID;
-				appearance.HairColor = character.AppearanceController._appearanceDetails.Value.HairColor;
-				appearance.SkinColor = character.AppearanceController._appearanceDetails.Value.SkinColor;
+				appearance.HairID = appearanceController._appearanceDetails.Value.HairID;
+				appearance.HairColor = appearanceController._appearanceDetails.Value.HairColor;
+				appearance.SkinColor = appearanceController._appearanceDetails.Value.SkinColor;
 
 			}
 			dbContext.SaveChanges();
@@ -59,7 +61,8 @@ namespace FellOnline.Server.DatabaseServices
 		/// </summary>
 		public static void Load(NpgsqlDbContext dbContext, Character character)
 		{
-			if (character == null)
+			if (character == null ||
+				!character.TryGet(out CharacterAppearanceController appearanceController))
 			{
 				return;
 			}
@@ -81,11 +84,11 @@ namespace FellOnline.Server.DatabaseServices
 					// 	character.AppearanceController._appearanceDetails.Value = new _CharacterAppearanceDetails(entity.SkinColor,entity.HairID,entity.HairColor);
 					// }
 					
-					character.AppearanceController.AppearanceDetails.HairID = entity.HairID;
-					character.AppearanceController.AppearanceDetails.HairColor = entity.HairColor;
-					character.AppearanceController.AppearanceDetails.SkinColor = entity.SkinColor;
+					appearanceController.AppearanceDetails.HairID = entity.HairID;
+					appearanceController.AppearanceDetails.HairColor = entity.HairColor;
+					appearanceController.AppearanceDetails.SkinColor = entity.SkinColor;
 
-						character.AppearanceController._appearanceDetails.Value = new CharacterAppearanceDetails(entity.SkinColor,entity.HairID,entity.HairColor);
+						appearanceController._appearanceDetails.Value = new CharacterAppearanceDetails(entity.SkinColor,entity.HairID,entity.HairColor);
 					break;
 				};
 				

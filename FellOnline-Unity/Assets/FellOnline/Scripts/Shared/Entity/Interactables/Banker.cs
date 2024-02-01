@@ -1,12 +1,13 @@
 #if UNITY_SERVER || UNITY_EDITOR
 using FishNet.Transporting;
+using static FellOnline.Server.Server;
 #endif
 using UnityEngine;
 
 namespace FellOnline.Shared
 {
-	[RequireComponent(typeof(FSceneObjectNamer))]
-	public class Banker : FInteractable
+	[RequireComponent(typeof(SceneObjectNamer))]
+	public class Banker : Interactable
 	{
 		public override bool OnInteract(Character character)
 		{
@@ -15,7 +16,7 @@ namespace FellOnline.Shared
 				return false;
 			}
 #if UNITY_SERVER
-			character.Owner.Broadcast(new BankerBroadcast()
+			Broadcast(character.Owner, new BankerBroadcast()
 			{
 				interactableID = ID,
 			}, true, Channel.Reliable);

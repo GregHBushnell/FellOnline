@@ -1,11 +1,12 @@
-﻿using FishNet.Managing;
+﻿using FishNet.Broadcast;
+using FishNet.Managing;
 using FishNet.Transporting;
 using FishNet.Managing.Scened;
-using FishNet.Managing.Timing;
 using FellOnline.Shared;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
+using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -13,6 +14,7 @@ using System;
 #if UNITY_EDITOR
 using UnityEditor;
 #endif
+using KinematicCharacterController;
 
 namespace FellOnline.Client
 {
@@ -35,7 +37,7 @@ namespace FellOnline.Client
 		public float ReconnectAttemptWaitTime = 5f;
 
 		public List<ServerAddress> LoginServerAddresses;
-		public FConfiguration Configuration = null;
+		public Configuration Configuration = null;
 
 		public event Action OnConnectionSuccessful;
 		public event Action<byte, byte> OnReconnectAttempt;
@@ -43,80 +45,98 @@ namespace FellOnline.Client
 		public event Action OnQuitToLogin;
 
 		public bool CanReconnect { get { return reconnectAllowed; } }
-		public static TimeManager TimeManager { get; private set; }
+		
+		private static NetworkManager _networkManager;
 		public NetworkManager NetworkManager;
-		public FClientLoginAuthenticator LoginAuthenticator;
+		public ClientLoginAuthenticator LoginAuthenticator;
 
 		void Awake()
 		{
 			if (NetworkManager == null)
 			{
-				Debug.LogError("Client: NetworkManager not found.");
-				Quit();
+				NetworkManager = FindObjectOfType<NetworkManager>();
+				if (NetworkManager == null)
+				{
+					Debug.LogError("Client: NetworkManager not found.");
+					Quit();
+					return;
+				}
 			}
-			else if (LoginAuthenticator == null)
+			
+			// set our static NM reference... this is used for easier client broadcasts
+			_networkManager = NetworkManager;
+
+			if (LoginAuthenticator == null)
 			{
-				Debug.LogError("Client: LoginAuthenticator not found.");
-				Quit();
+				LoginAuthenticator = FindObjectOfType<ClientLoginAuthenticator>();
+				if (LoginAuthenticator == null)
+				{
+					Debug.LogError("Client: LoginAuthenticator not found.");
+					Quit();
+					return;
+				}
 			}
-			else
-			{
-				Application.logMessageReceived += this.Application_logMessageReceived;
-				// set the UIManager Client
-				FUIManager.SetClient(this);
+
+			// set the UIManager Client
+			UIManager.SetClient(this);
+			
 				
 
 				// initialize naming service
-				FClientNamingSystem.InitializeOnce(this);
+			ClientNamingSystem.InitializeOnce(this);
 
-				// assign the clients TimeManager
-				TimeManager = NetworkManager.TimeManager;
 
 				// assign the client to the Login Authenticator
-				LoginAuthenticator.SetClient(this);
+			LoginAuthenticator.SetClient(this);
 
 				string path = Client.GetWorkingDirectory();
 
+
+
 				// load configuration
-				Configuration = new FConfiguration(path);
-				if (!Configuration.Load(FConfiguration.DEFAULT_FILENAME + FConfiguration.EXTENSION))
-				{
-					// if we failed to load the file.. save a new one
-					Configuration.Set("Resolution Width", 1280);
-					Configuration.Set("Resolution Height", 800);
-					Configuration.Set("Refresh Rate", (uint)60);
-					Configuration.Set("Fullscreen", false);
+			Configuration = new Configuration(path);
+			if (!Configuration.Load(Configuration.DEFAULT_FILENAME + Configuration.EXTENSION))
+			{
+				// if we failed to load the file.. save a new one
+				Configuration.Set("Resolution Width", 1280);
+				Configuration.Set("Resolution Height", 800);
+				Configuration.Set("Refresh Rate", (uint)60);
+				Configuration.Set("Fullscreen", false);
 #if !UNITY_EDITOR
 					Configuration.Save();
 #endif
-				}
+			}
 
 				if (Configuration.TryGetInt("Resolution Width", out int width) &&
-					Configuration.TryGetInt("Resolution Height", out int height) &&
-					Configuration.TryGetUInt("Refresh Rate", out uint refreshRate) &&
-					Configuration.TryGetBool("Fullscreen", out bool fullscreen))
+				Configuration.TryGetInt("Resolution Height", out int height) &&
+				Configuration.TryGetUInt("Refresh Rate", out uint refreshRate) &&
+				Configuration.TryGetBool("Fullscreen", out bool fullscreen))
 				{
 #if !UNITY_WEBGL
 					Screen.SetResolution(width, height, fullscreen ? FullScreenMode.ExclusiveFullScreen : FullScreenMode.Windowed, new RefreshRate()
-					{
-						numerator = refreshRate,
-						denominator = 1,
-					});
+				{
+					numerator = refreshRate,
+					denominator = 1,
+				});
 #endif
-				}
-
-				UnityEngine.SceneManagement.SceneManager.sceneLoaded += UnitySceneManager_OnSceneLoaded;
-				UnityEngine.SceneManagement.SceneManager.sceneUnloaded += UnitySceneManager_OnSceneUnloaded;
-				NetworkManager.ClientManager.OnClientConnectionState += ClientManager_OnClientConnectionState;
-				NetworkManager.SceneManager.OnLoadStart += SceneManager_OnLoadStart;
-				NetworkManager.SceneManager.OnLoadPercentChange += SceneManager_OnLoadPercentChange;
-				NetworkManager.SceneManager.OnLoadEnd += SceneManager_OnLoadEnd;
-				NetworkManager.SceneManager.OnUnloadStart += SceneManager_OnUnloadStart;
-				NetworkManager.SceneManager.OnUnloadEnd += SceneManager_OnUnloadEnd;
-				LoginAuthenticator.OnClientAuthenticationResult += Authenticator_OnClientAuthenticationResult;
-
-				NetworkManager.ClientManager.RegisterBroadcast<SceneWorldReconnectBroadcast>(OnClientSceneWorldReconnectBroadcastReceived);
+				
 			}
+			
+			// Ensure the KCC System is created.
+			KinematicCharacterSystem.EnsureCreation();
+			KinematicCharacterSystem.Settings.AutoSimulation = false;
+
+			UnityEngine.SceneManagement.SceneManager.sceneLoaded += UnitySceneManager_OnSceneLoaded;
+			UnityEngine.SceneManagement.SceneManager.sceneUnloaded += UnitySceneManager_OnSceneUnloaded;
+			NetworkManager.ClientManager.OnClientConnectionState += ClientManager_OnClientConnectionState;
+			NetworkManager.SceneManager.OnLoadStart += SceneManager_OnLoadStart;
+			NetworkManager.SceneManager.OnLoadPercentChange += SceneManager_OnLoadPercentChange;
+			NetworkManager.SceneManager.OnLoadEnd += SceneManager_OnLoadEnd;
+			NetworkManager.SceneManager.OnUnloadStart += SceneManager_OnUnloadStart;
+			NetworkManager.SceneManager.OnUnloadEnd += SceneManager_OnUnloadEnd;
+			LoginAuthenticator.OnClientAuthenticationResult += Authenticator_OnClientAuthenticationResult;
+
+			NetworkManager.ClientManager.RegisterBroadcast<SceneWorldReconnectBroadcast>(OnClientSceneWorldReconnectBroadcastReceived);
 		}
 
 		private void Update()
@@ -159,7 +179,7 @@ namespace FellOnline.Client
 
 		public void OnDestroy()
 		{
-			FClientNamingSystem.Destroy();
+			ClientNamingSystem.Destroy();
 			Application.logMessageReceived -= this.Application_logMessageReceived;
 		}
 
@@ -263,26 +283,26 @@ namespace FellOnline.Client
 			}
 		}
 
-		private void Authenticator_OnClientAuthenticationResult(FClientAuthenticationResult result)
+		private void Authenticator_OnClientAuthenticationResult(ClientAuthenticationResult result)
 		{
 			switch (result)
 			{
-				case FClientAuthenticationResult.AccountCreated:
+				case ClientAuthenticationResult.AccountCreated:
 					break;
-				case FClientAuthenticationResult.InvalidUsernameOrPassword:
+				case ClientAuthenticationResult.InvalidUsernameOrPassword:
 					break;
-				case FClientAuthenticationResult.AlreadyOnline:
+				case ClientAuthenticationResult.AlreadyOnline:
 					break;
-				case FClientAuthenticationResult.Banned:
+				case ClientAuthenticationResult.Banned:
 					break;
-				case FClientAuthenticationResult.LoginSuccess:
+				case ClientAuthenticationResult.LoginSuccess:
 					break;
-				case FClientAuthenticationResult.WorldLoginSuccess:
+				case ClientAuthenticationResult.WorldLoginSuccess:
 					break;
-				case FClientAuthenticationResult.SceneLoginSuccess:
+				case ClientAuthenticationResult.SceneLoginSuccess:
 						reconnectAllowed = true;
 					break;
-				case FClientAuthenticationResult.ServerFull:
+				case ClientAuthenticationResult.ServerFull:
 					break;
 				default:
 					break;
@@ -356,6 +376,13 @@ namespace FellOnline.Client
 			// stop current connection if any
 			NetworkManager.ClientManager.StopConnection();
 		}
+		[MethodImpl(MethodImplOptions.AggressiveInlining)]
+		public static void Broadcast<T>(T broadcast, Channel channel = Channel.Reliable) where T : struct, IBroadcast
+		{
+			Debug.Log($"[Broadcast] Sending: " + typeof(T));
+			_networkManager.ClientManager.Broadcast(broadcast, channel);
+		}
+
 
 		public bool TryGetRandomLoginServerAddress(out ServerAddress serverAddress)
 		{

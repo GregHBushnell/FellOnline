@@ -15,7 +15,7 @@ public class HairSelectButton : Button
 	public Image HairIconImage;
     
 
-        public FUICharacterCreate characterCreateReference = null;
+        public UICharacterCreate characterCreateReference = null;
 
 
         public override void OnPointerClick(PointerEventData eventData)

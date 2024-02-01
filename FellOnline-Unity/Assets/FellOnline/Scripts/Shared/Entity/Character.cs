@@ -8,38 +8,35 @@ using FishNet.Transporting;
 using KinematicCharacterController;
 using UnityEngine;
 using System;
+using System.Collections.Generic;
 
 namespace FellOnline.Shared
 {
-	/// <summary>
-	/// Character contains references to all of the controllers associated with the character.
-	/// </summary>
-	#region KCC
-
-	[RequireComponent(typeof(Rigidbody))]
-	[RequireComponent(typeof(FellCController))]
-	[RequireComponent(typeof(FellPlayer))]
-	[RequireComponent(typeof(Rigidbody))]
-	[RequireComponent(typeof(KinematicCharacterMotor))]
-
-	#endregion
-	[RequireComponent(typeof(FCharacterAttributeController))]
-	[RequireComponent(typeof(FTargetController))]
-	[RequireComponent(typeof(FCooldownController))]
-	[RequireComponent(typeof(FInventoryController))]
-	[RequireComponent(typeof(FEquipmentController))]
+	
+	[RequireComponent(typeof(CharacterAttributeController))]
+	[RequireComponent(typeof(TargetController))]
+	[RequireComponent(typeof(CooldownController))]
+	[RequireComponent(typeof(InventoryController))]
+	[RequireComponent(typeof(EquipmentController))]
 	[RequireComponent(typeof(BankController))]
-	[RequireComponent(typeof(FAbilityController))]
-	[RequireComponent(typeof(FAchievementController))]
-	[RequireComponent(typeof(FBuffController))]
-	[RequireComponent(typeof(FQuestController))]
-	[RequireComponent(typeof(FCharacterDamageController))]
-	[RequireComponent(typeof(FGuildController))]
-	[RequireComponent(typeof(FPartyController))]
-	[RequireComponent(typeof(FFriendController))]
+	[RequireComponent(typeof(AbilityController))]
+	[RequireComponent(typeof(AchievementController))]
+	[RequireComponent(typeof(BuffController))]
+	[RequireComponent(typeof(QuestController))]
+	[RequireComponent(typeof(CharacterDamageController))]
+	[RequireComponent(typeof(GuildController))]
+	[RequireComponent(typeof(PartyController))]
+	[RequireComponent(typeof(FriendController))]
+
 	[RequireComponent(typeof(WorldItemController))]
-	public class Character : NetworkBehaviour, FIPooledResettable
+	[RequireComponent(typeof(CharacterAppearanceController))]
+	[RequireComponent(typeof(EquipmentAppearanceController))]
+	[RequireComponent(typeof(WeaponCombatController))]
+	public class Character : NetworkBehaviour, IPooledResettable
 	{
+		private Dictionary<Type, CharacterBehaviour> behaviours = new Dictionary<Type, CharacterBehaviour>();
+
+
 		public Transform Transform { get; private set; }
 
 		#region KCC
@@ -48,30 +45,14 @@ namespace FellOnline.Shared
 		public FellPlayer f_Player { get; private set; }
 		#endregion
 
-		public FCharacterAttributeController AttributeController { get; private set; }
-		public FCharacterDamageController DamageController { get; private set; }
-		public FTargetController TargetController { get; private set; }
-		public FCooldownController CooldownController { get; private set; }
-		public FInventoryController InventoryController { get; private set; }
-		public FEquipmentController EquipmentController { get; private set; }
-		public BankController BankController { get; private set; }
 		
-		public FAbilityController AbilityController { get; private set; }
-		public FAchievementController AchievementController { get; private set; }
-		public FBuffController BuffController { get; private set; }
-		public FQuestController QuestController { get; private set; }
-		public FGuildController GuildController { get; private set; }
-		public FPartyController PartyController { get; private set; }
-		public FFriendController FriendController { get; private set; }
-		public WorldItemController WorldItemController { get; private set; }
-		public CharacterAppearanceController AppearanceController { get; private set; }
 #if !UNITY_SERVER
-		public FLocalInputController LocalInputController { get; private set; }
+		public LocalInputController LocalInputController { get; private set; }
 		public TextMeshPro CharacterNameLabel;
 		public TextMeshPro CharacterGuildLabel;
 #endif
 		// accountID for reference
-	public readonly SyncVar<long> ID = new SyncVar<long>(new SyncTypeSetting()
+	public readonly SyncVar<long> ID = new SyncVar<long>(new SyncTypeSettings()
 		{
 			SendRate = 0.0f,
 			Channel = Channel.Reliable,
@@ -81,7 +62,7 @@ namespace FellOnline.Shared
 		private void OnCharacterIDChanged(long prev, long next, bool asServer)
 		{
 #if !UNITY_SERVER
-			FClientNamingSystem.SetName(FNamingSystemType.CharacterName, next, (n) =>
+			ClientNamingSystem.SetName(NamingSystemType.CharacterName, next, (n) =>
 			{
 				gameObject.name = n;
 				CharacterName = n;
@@ -102,21 +83,21 @@ namespace FellOnline.Shared
 		public long WorldServerID;
 		public AccessLevel AccessLevel = AccessLevel.Player;
 		public bool IsTeleporting = false;
-		public readonly SyncVar<long> Currency = new SyncVar<long>(new SyncTypeSetting()
+		public readonly SyncVar<long> Currency = new SyncVar<long>(new SyncTypeSettings()
 		{
 			SendRate = 0.0f,
 			Channel = Channel.Unreliable,
 			ReadPermission = ReadPermission.OwnerOnly,
 			WritePermission = WritePermission.ServerOnly,
 		});
-		public readonly SyncVar<int> RaceID = new SyncVar<int>(new SyncTypeSetting()
+		public readonly SyncVar<int> RaceID = new SyncVar<int>(new SyncTypeSettings()
 		{
 			SendRate = 0.0f,
 			Channel = Channel.Unreliable,
 			ReadPermission = ReadPermission.OwnerOnly,
 			WritePermission = WritePermission.ServerOnly,
 		});
-		public readonly SyncVar<string> RaceName = new SyncVar<string>(new SyncTypeSetting()
+		public readonly SyncVar<string> RaceName = new SyncVar<string>(new SyncTypeSettings()
 		{
 			SendRate = 0.0f,
 			Channel = Channel.Unreliable,
@@ -124,7 +105,7 @@ namespace FellOnline.Shared
 			WritePermission = WritePermission.ServerOnly,
 		});
 			
-		public readonly SyncVar<string> SceneName = new SyncVar<string>(new SyncTypeSetting()
+		public readonly SyncVar<string> SceneName = new SyncVar<string>(new SyncTypeSettings()
 		{
 			SendRate = 0.0f,
 			Channel = Channel.Unreliable,
@@ -146,48 +127,31 @@ namespace FellOnline.Shared
 			Motor = gameObject.GetComponent<KinematicCharacterMotor>();
 
 			CharacterController = gameObject.GetComponent<FellCController>();
-			CharacterController.Character = this;
-			CharacterController.Motor = Motor;
-			Motor.CharacterController = CharacterController;
+			if (CharacterController != null)
+			{
+				CharacterController.Character = this;
+			}
 			
 
 			f_Player = gameObject.GetComponent<FellPlayer>();
-			f_Player.CharacterController = CharacterController;
-			f_Player.Motor = Motor;
-			
-			
 			#endregion
 
-			AttributeController = gameObject.GetComponent<FCharacterAttributeController>();
-			DamageController = gameObject.GetComponent<FCharacterDamageController>();
-			DamageController.Character = this;
-			TargetController = gameObject.GetComponent<FTargetController>();
-			TargetController.Character = this;
-			CooldownController = gameObject.GetComponent<FCooldownController>();
-			InventoryController = gameObject.GetComponent<FInventoryController>();
-			InventoryController.Character = this;
-			EquipmentController = gameObject.GetComponent<FEquipmentController>();
-			EquipmentController.Character = this;
-			BankController = gameObject.GetComponent<BankController>();
-			BankController.Character = this;
-			AbilityController = gameObject.GetComponent<FAbilityController>();
-			AbilityController.Character = this;
-			AchievementController = gameObject.GetComponent<FAchievementController>();
-			AchievementController.Character = this;
-			BuffController = gameObject.GetComponent<FBuffController>();
-			BuffController.Character = this;
-			QuestController = gameObject.GetComponent<FQuestController>();
-			QuestController.Character = this;
-			GuildController = gameObject.GetComponent<FGuildController>();
-			GuildController.Character = this;
-			PartyController = gameObject.GetComponent<FPartyController>();
-			PartyController.Character = this;
-			FriendController = gameObject.GetComponent<FFriendController>();
-			FriendController.Character = this;
-			WorldItemController = gameObject.GetComponent<WorldItemController>();
-			WorldItemController.Character = this;
-			AppearanceController = gameObject.GetComponent<CharacterAppearanceController>();
-			AppearanceController.Character = this;
+			CharacterBehaviour[] c = gameObject.GetComponents<CharacterBehaviour>();
+			if (c != null)
+			{
+				for (int i = 0; i < c.Length; ++i)
+				{
+					CharacterBehaviour behaviour = c[i];
+					if (behaviour == null)
+					{
+						continue;
+					}
+
+					behaviour.InitializeOnce(this);
+				}
+			}
+
+			
 			
 		}
 		void OnDestroy()
@@ -199,6 +163,7 @@ namespace FellOnline.Shared
 		public override void OnStartClient()
 		{
 			base.OnStartClient();
+
 			if (base.IsOwner)
 			{
 				InitializeLocal(true);
@@ -218,10 +183,10 @@ namespace FellOnline.Shared
 		{
 			//FInputManager.MouseMode = true;
 
-			 LocalInputController = gameObject.GetComponent<FLocalInputController>();
+			 LocalInputController = gameObject.GetComponent<LocalInputController>();
 			 if (LocalInputController == null)
 			 {
-			 	LocalInputController = gameObject.AddComponent<FLocalInputController>();
+			 	LocalInputController = gameObject.AddComponent<LocalInputController>();
 			 }
 			 LocalInputController.Initialize(this);
 
@@ -232,31 +197,82 @@ namespace FellOnline.Shared
 		{
 			if (initializing)
 			{
-				FUIManager.SetCharacter(this);
+				UIManager.SetCharacter(this);
 
-				if (TargetController != null &&
-					FUIManager.TryGet("UITarget", out FUITarget uiTarget))
+				if (this.TryGet(out TargetController targetController) &&
+					UIManager.TryGet("UITarget", out UITarget uiTarget))
 				{
-					TargetController.OnChangeTarget += uiTarget.OnChangeTarget;
-					TargetController.OnUpdateTarget += uiTarget.OnUpdateTarget;
+					targetController.OnChangeTarget += uiTarget.OnChangeTarget;
+					targetController.OnUpdateTarget += uiTarget.OnUpdateTarget;
 				}
 
 				CharacterController.MeshRoot.gameObject.layer = Constants.Layers.LocalEntity;
 			}
 			else
 			{
-				FUIManager.SetCharacter(null);
+				UIManager.SetCharacter(null);
 
-				if (TargetController != null &&
-					FUIManager.TryGet("UITarget", out FUITarget uiTarget))
+				if (this.TryGet(out TargetController targetController) &&
+					UIManager.TryGet("UITarget", out UITarget uiTarget))
 				{
-					TargetController.OnChangeTarget -= uiTarget.OnChangeTarget;
-					TargetController.OnUpdateTarget -= uiTarget.OnUpdateTarget;
+					targetController.OnChangeTarget -= uiTarget.OnChangeTarget;
+					targetController.OnUpdateTarget -= uiTarget.OnUpdateTarget;
 				}
 				CharacterController.MeshRoot.gameObject.layer = Constants.Layers.Default;
 			}
 		}
 #endif
+public void RegisterCharacterBehaviour(CharacterBehaviour behaviour)
+		{
+			if (behaviour == null)
+			{
+				return;
+			}
+			Type type = behaviour.GetType();
+			if (behaviours.ContainsKey(type))
+			{
+				return;
+			}
+			//Debug.Log(CharacterName + ": Registered " + type.Name);
+			behaviours.Add(type, behaviour);
+		}
+
+		public void Unregister<T>(T behaviour) where T : CharacterBehaviour
+		{
+			if (behaviour == null)
+			{
+				return;
+			}
+			else
+			{
+				Type type = behaviour.GetType();
+				//Debug.Log(CharacterName + ": Unregistered " + type.Name);
+				behaviours.Remove(type);
+			}
+		}
+
+		public bool TryGet<T>(out T control) where T : CharacterBehaviour
+		{
+			if (behaviours.TryGetValue(typeof(T), out CharacterBehaviour result))
+			{
+				if ((control = result as T) != null)
+				{
+					return true;
+				}
+			}
+			control = null;
+			return false;
+		}
+
+		public T Get<T>() where T : CharacterBehaviour
+		{
+			if (behaviours.TryGetValue(typeof(T), out CharacterBehaviour result))
+			{
+				return result as T;
+			}
+			return null;
+		}
+
 
 		/// <summary>
 		/// Resets the Character values to default for pooling.

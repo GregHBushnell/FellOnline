@@ -1,22 +1,25 @@
 
 using UnityEngine;
 using FishNet.Transporting;
-using FellOnline.Client;
 using FishNet.Object;
+using System.Collections.Generic;
+using System;
+#if !UNITY_SERVER
+using static FellOnline.Client.Client;
+#endif
 namespace FellOnline.Shared
 {
-public class WorldItemController : NetworkBehaviour {
-    
-		public Character Character;
-        private int CurrentTemplateID = 0;
+	public class WorldItemController : CharacterBehaviour {
+	
+		private int CurrentTemplateID = 0;
 		private int CurrentInteractableID = 0;
-        public override void OnStartClient()
+		public override void OnStartClient()
 		{
 			base.OnStartClient();
 
-			if (!base.IsOwner)
+			if (!IsOwner)
 			{
-				this.enabled = false;
+				enabled = false;
 			}
 			else
 			{
@@ -28,29 +31,75 @@ public class WorldItemController : NetworkBehaviour {
 		{
 			base.OnStopClient();
 
-			if (base.IsOwner)
+			if (IsOwner)
 			{
 				ClientManager.UnregisterBroadcast<WorldItemBroadcast>(OnClientWorldItemBroadcastReceived);
 			}
 		}
 
-        private void OnClientWorldItemBroadcastReceived(WorldItemBroadcast msg, Channel channel)
+		private void OnClientWorldItemBroadcastReceived(WorldItemBroadcast msg, Channel channel)
 		{
+#if !UNITY_SERVER
 			CurrentInteractableID = msg.interactableID;
 			CurrentTemplateID = msg.templateID;
-			//WorldItemTemplate template = WorldItemTemplate.Get<WorldItemTemplate>(CurrentTemplateID);
-            //if (template != null)
-           // {
 
-                WorldItemPickupBroadcast message = new WorldItemPickupBroadcast()
-                {
-                    interactableID = CurrentInteractableID,
-					templateID = CurrentTemplateID
-                };
-                ClientManager.Broadcast(message, Channel.Reliable);
-           // }else{
-                // Debug.LogError("Template with ID " + CurrentTemplateID + " not found");
-           // }
+
+			var message = new WorldItemPickupBroadcast()
+			{
+				interactableID = CurrentInteractableID,
+				templateID = CurrentTemplateID
+			};
+			Broadcast(message, Channel.Reliable);
+
+			AddWeaponAbilities(CurrentTemplateID);
+
+#endif
+
 		}
-    }
+
+		public void AddWeaponAbilities(int templateID)
+		{
+#if !UNITY_SERVER
+			if (templateID == 0)
+			{
+				return;
+			}
+			WorldItemTemplate template = WorldItemTemplate.Get<WorldItemTemplate>(templateID);
+			
+			WeaponTemplate WeaponItemTemplate = WeaponTemplate.Get<WeaponTemplate>(template.Item.ID);
+
+			AbilityTemplate catagoryTemplate = WeaponItemTemplate.AbilityCategoryTemplate;
+		
+			AbilityEvent mainAttackEvent = WeaponItemTemplate.MainAttackEvent;
+			List<AbilityEvent> events = WeaponItemTemplate.ExtraAbilityEvents;
+			if (catagoryTemplate == null)
+			{
+				return;
+			}
+
+			List<int> eventIds = new List<int>();
+
+			if (catagoryTemplate.EventSlots != 0)
+			{
+				eventIds.Add(mainAttackEvent.ID);
+				for (int i = 0; i < events.Count; ++i)
+				{
+					
+					if (events[i] != null)
+					{
+						eventIds.Add(events[i].ID);
+					}
+				}
+			}
+
+			AbilityLearnItemPickupBroadcast abilityLearnItemPickupAddBroadcast = new AbilityLearnItemPickupBroadcast()
+			{
+				templateID = catagoryTemplate.ID,
+				events = eventIds,
+			};
+
+			Broadcast(abilityLearnItemPickupAddBroadcast, Channel.Reliable);
+#endif
+		}
+	}
 }

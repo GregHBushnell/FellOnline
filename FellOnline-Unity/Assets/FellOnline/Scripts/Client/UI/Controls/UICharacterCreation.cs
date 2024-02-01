@@ -4,7 +4,7 @@ using UnityEngine;
 using FellOnline.Shared;
 namespace FellOnline.Client
 {
-public class UICharacterCreation: FUIControl
+public class UICharacterCreation: UIControl
 {
 
     public List<SkinnedMeshRenderer> Hair = new List<SkinnedMeshRenderer>();
@@ -15,7 +15,7 @@ public class UICharacterCreation: FUIControl
      public string hex;
     public int colorint =16777215;
 
-    public FUICharacterCreate fFuicharactercreate;
+    public UICharacterCreate uicharactercreate;
     
 
     // Update is called once per frame
@@ -32,20 +32,20 @@ public class UICharacterCreation: FUIControl
 
       color = setcolor;
       hex = color.ToHex();  
-      colorint = FHex.ToInt(hex);
+      colorint = Hex.ToInt(hex);
        Debug.Log("colorhex: " + hex);
       Debug.Log("colorint: " + colorint);
       Debug.Log("back to color: " + colorint.ToString());
       if(Body != null)
       {
            Body.material.SetColor("_BaseColor",color);
-           fFuicharactercreate.SkinColorInt = colorint;
+           uicharactercreate.SkinColorInt = colorint;
       }else if (Hair.Count > 0)
       {
           foreach (SkinnedMeshRenderer mat in Hair)
           {
               mat.material.SetColor("_BaseColor",color);
-              fFuicharactercreate.HairColorInt = colorint;
+              uicharactercreate.HairColorInt = colorint;
           }
       }
         
@@ -53,12 +53,12 @@ public class UICharacterCreation: FUIControl
 
         public override void OnStarting()
         {
-            throw new System.NotImplementedException();
+           
         }
 
         public override void OnDestroying()
         {
-            throw new System.NotImplementedException();
+            
         }
     }
 }

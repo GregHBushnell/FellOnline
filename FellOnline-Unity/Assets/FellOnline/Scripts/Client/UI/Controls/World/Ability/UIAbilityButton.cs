@@ -3,13 +3,13 @@ using TMPro;
 
 namespace FellOnline.Client
 {
-	public class UIAbilityButton : FUIReferenceButton
+	public class UIAbilityButton : UIReferenceButton
 	{
 		public TMP_Text DescriptionLabel;
 
 		public override void OnLeftClick()
 		{
-			if (FUIManager.TryGet("UIDragObject", out FUIDragObject dragObject))
+			if (UIManager.TryGet("UIDragObject", out UIDragObject dragObject))
 			{
 				if (Character != null)
 				{
@@ -17,7 +17,8 @@ namespace FellOnline.Client
 					{
 						dragObject.Clear();
 					}
-					else if (Character.AbilityController.KnownAbilities.ContainsKey(ReferenceID))
+					else if (Character.TryGet(out AbilityController abilityController) &&
+							 abilityController.KnownAbilities.ContainsKey(ReferenceID))
 					{
 						dragObject.SetReference(Icon.sprite, ReferenceID, Type);
 					}

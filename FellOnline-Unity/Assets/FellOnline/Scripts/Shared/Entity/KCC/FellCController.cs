@@ -65,12 +65,12 @@ namespace FellOnline.Shared
 		public float CrouchedCapsuleHeight = 0.5f;
 		public float FullCapsuleHeight = 2f;
 		public float CapsuleBaseOffset = 1f;
-		public FCharacterAttributeTemplate MoveSpeedTemplate;
-		public FCharacterAttributeTemplate RunSpeedTemplate;
-		public FCharacterAttributeTemplate JumpSpeedTemplate;
-		public FCharacterAttributeTemplate SwimSpeedTemplate;
-		public FCharacterAttributeTemplate FastFallSpeedTemplate;
-		public FCharacterAttributeTemplate GravityTemplate;
+		public CharacterAttributeTemplate MoveSpeedTemplate;
+		public CharacterAttributeTemplate RunSpeedTemplate;
+		public CharacterAttributeTemplate JumpSpeedTemplate;
+		public CharacterAttributeTemplate SwimSpeedTemplate;
+		public CharacterAttributeTemplate FastFallSpeedTemplate;
+		public CharacterAttributeTemplate GravityTemplate;
 
 		public KCCCharacterState CurrentCharacterState { get; private set; }
 
@@ -196,11 +196,11 @@ namespace FellOnline.Shared
 						
 						if (_moveInputVector != Vector3.zero)
 						{
-							_animator.SetBool("Walking", true);
+							//_animator.SetBool("Walking", true);
 							_moving = true;
 							_lastMovementVector = _moveInputVector.normalized;
 						}else{
-							_animator.SetBool("Walking", false);
+							//_animator.SetBool("Walking", false);
 							_moving = false;
 						}
 						
@@ -209,7 +209,7 @@ namespace FellOnline.Shared
 							case OrientationMethod.TowardsMovement:
 								if(_lastMovementVector != Vector3.zero)
 								{
-									_lookInputVector = _lastMovementVector.normalized;
+									_lookInputVector = _lastMovementVector;
 								}else{
 									_lookInputVector = _moveInputVector.normalized;
 								}
@@ -367,7 +367,7 @@ namespace FellOnline.Shared
 							float targetSpeed = StableMoveSpeedConstant;
 
 							if (Character != null &&
-								Character.AttributeController != null)
+								Character.TryGet(out CharacterAttributeController attributeController))
 							{
 								if (_isCrouching)
 								{
@@ -375,12 +375,12 @@ namespace FellOnline.Shared
 								}
 								else if (_sprintInputDown &&
 									RunSpeedTemplate != null &&
-									Character.AttributeController.TryGetAttribute(RunSpeedTemplate, out FCharacterAttribute runSpeedModifier))
+									attributeController.TryGetAttribute(RunSpeedTemplate, out CharacterAttribute runSpeedModifier))
 								{
 									targetSpeed = StableSprintSpeedConstant * runSpeedModifier.FinalValueAsPct;
 								}
 								else if (MoveSpeedTemplate != null &&
-									Character.AttributeController.TryGetAttribute(MoveSpeedTemplate, out FCharacterAttribute moveSpeedModifier))
+									attributeController.TryGetAttribute(MoveSpeedTemplate, out CharacterAttribute moveSpeedModifier))
 								{
 									targetSpeed = StableMoveSpeedConstant * moveSpeedModifier.FinalValueAsPct;
 								}
@@ -454,22 +454,26 @@ namespace FellOnline.Shared
 							}
 
 							// Gravity
-							if (GravityTemplate != null &&
-								Character.AttributeController.TryGetAttribute(GravityTemplate, out FCharacterAttribute gravityModifier))
+							if (Character.TryGet(out CharacterAttributeController attributeController))
 							{
-								currentVelocity += GravityConstant * gravityModifier.FinalValueAsPct * deltaTime;
+								// Character Independant Gravity
+								if (GravityTemplate != null &&
+									attributeController.TryGetAttribute(GravityTemplate, out CharacterAttribute gravityModifier))
+								{
+									currentVelocity += GravityConstant * gravityModifier.FinalValueAsPct * deltaTime;
+								}
+
+								// Fast Fall
+								if (_isCrouching &&
+									FastFallSpeedTemplate != null &&
+									attributeController.TryGetAttribute(FastFallSpeedTemplate, out CharacterAttribute fastFallModifier))
+								{
+									currentVelocity.y += GravityConstant.y * fastFallModifier.FinalValueAsPct * deltaTime;
+								}
 							}
 							else
 							{
 								currentVelocity += GravityConstant * deltaTime;
-							}
-
-							// Fast Fall
-							if (_isCrouching &&
-								FastFallSpeedTemplate != null &&
-								Character.AttributeController.TryGetAttribute(FastFallSpeedTemplate, out FCharacterAttribute fastFallModifier))
-							{
-								currentVelocity.y += GravityConstant.y * fastFallModifier.FinalValueAsPct * deltaTime;
 							}
 
 							// Drag
@@ -497,7 +501,8 @@ namespace FellOnline.Shared
 								// Add to the return velocity and reset jump state
 								float jumpSpeed = StableJumpUpSpeedConstant;
 								if (JumpSpeedTemplate != null &&
-									Character.AttributeController.TryGetAttribute(JumpSpeedTemplate, out FCharacterAttribute jumpSpeedModifier))
+									Character.TryGet(out CharacterAttributeController attributeController) &&
+									attributeController.TryGetAttribute(JumpSpeedTemplate, out CharacterAttribute jumpSpeedModifier))
 								{
 									jumpSpeed *= jumpSpeedModifier.FinalValueAsPct;
 								}
@@ -531,12 +536,12 @@ namespace FellOnline.Shared
 			{
 				case KCCCharacterState.Default:
 					{
-						if (Vector3.Distance(Motor.Transform.position, _clicktargetPos) < 0.1f)
-						{
-							_inPos = true;
-							_animator.SetBool("Walking", false);
-							_clicktargetPos = Vector3.zero;
-						}
+						// if (Vector3.Distance(Motor.Transform.position, _clicktargetPos) < 0.1f)
+						// {
+						// 	_inPos = true;
+						// 	_animator.SetBool("Walking", false);
+						// 	_clicktargetPos = Vector3.zero;
+						// }
 							
 
 						// Handle jump-related values
@@ -590,13 +595,28 @@ namespace FellOnline.Shared
 
 						if (_animator != null)
 						{
-							//_animator.SetBool("Crouching", _isCrouching);
-							//_animator.SetBool("OnGround", Motor.GroundingStatus.FoundAnyGround);
+							_animator.SetBool("Crouching", _isCrouching);
+							_animator.SetBool("OnGround", Motor.GroundingStatus.FoundAnyGround);
 
-							/*if (!_isCrouching && !IsJumping && Motor.GroundingStatus.FoundAnyGround)
+							if (!_isCrouching && !IsJumping && Motor.GroundingStatus.FoundAnyGround && _moveInputVector.sqrMagnitude > 0f)
 							{
-								_animator.SetBool("Running", (_moveInputVector.sqrMagnitude > 0));
-							}*/
+								if(_isCrouching){_animator.SetFloat("Speed", .1f);}
+								else
+								if(_sprintInputDown){
+									_animator.SetFloat("Speed", 1f);	
+								}else{
+									_animator.SetFloat("Speed", .5f);
+								}
+								 
+								
+								//_animator.SetFloat("Rotation", _lookInputVector.magnitude);
+								
+ 
+       			 				_animator.SetFloat("Horizontal", _lookInputVector.x);
+        						_animator.SetFloat("Vertical", _lookInputVector.z);
+							}else{
+								_animator.SetFloat("Speed", 0f);
+							}
 						}
 						break;
 					}

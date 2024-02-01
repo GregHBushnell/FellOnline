@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace FellOnline.Shared
 {
-	public class FWorldSceneSettings : MonoBehaviour
+	public class WorldSceneSettings : MonoBehaviour
 	{
 		public int MaxClients = 100;
 	}

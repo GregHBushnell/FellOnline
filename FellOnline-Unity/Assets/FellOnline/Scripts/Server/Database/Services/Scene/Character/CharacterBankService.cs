@@ -10,7 +10,7 @@ namespace FellOnline.Server.DatabaseServices
         /// <summary>
 		/// Updates an existing item by ID.
 		/// </summary>
-		public static void Update(NpgsqlDbContext dbContext, long characterID, FItem item)
+		public static void Update(NpgsqlDbContext dbContext, long characterID, Item item)
 		{
 			if (characterID == 0)
 			{
@@ -38,7 +38,7 @@ namespace FellOnline.Server.DatabaseServices
 		/// <summary>
 		/// Updates a CharacterBankItem slot to new values or adds a new CharacterBankItem and initializes the Item with the new ID.
 		/// </summary>
-		public static void SetSlot(NpgsqlDbContext dbContext, long characterID, FItem item)
+		public static void SetSlot(NpgsqlDbContext dbContext, long characterID, Item item)
 		{
 			if (characterID == 0)
 			{
@@ -75,7 +75,7 @@ namespace FellOnline.Server.DatabaseServices
 				};
 				dbContext.CharacterBankItems.Add(dbItem);
 				dbContext.SaveChanges();
-				item.Initialize(dbItem.ID, dbItem.Seed);
+				item.Initialize(dbItem.ID, dbItem.Amount, dbItem.Seed);
 			}
 		}
 
@@ -84,7 +84,8 @@ namespace FellOnline.Server.DatabaseServices
 		/// </summary>
 		public static void Save(NpgsqlDbContext dbContext, Character character)
 		{
-			if (character == null)
+			if (character == null ||
+				!character.TryGet(out BankController bankController))
 			{
 				return;
 			}
@@ -92,7 +93,7 @@ namespace FellOnline.Server.DatabaseServices
 			var dbBankItems = dbContext.CharacterBankItems.Where(c => c.CharacterID == character.ID.Value)
 																	.ToDictionary(k => k.Slot);
 
-			foreach (FItem item in character.BankController.Items)
+			foreach (Item item in bankController.Items)
 			{
 				if (dbBankItems.TryGetValue(item.Slot, out CharacterBankEntity dbItem))
 				{
@@ -162,20 +163,27 @@ namespace FellOnline.Server.DatabaseServices
 		/// </summary>
 		public static void Load(NpgsqlDbContext dbContext, Character character)
 		{
+			if (character == null ||
+				!character.TryGet(out BankController bankController))
+			{
+				return;
+			}
+
+
 						var dbBankItems = dbContext.CharacterBankItems.Where(c => c.CharacterID == character.ID.Value);
 			foreach (CharacterBankEntity dbItem in dbBankItems)
 			{
-				FBaseItemTemplate template = FBaseItemTemplate.Get<FBaseItemTemplate>(dbItem.TemplateID);
+				BaseItemTemplate template = BaseItemTemplate.Get<BaseItemTemplate>(dbItem.TemplateID);
 				if (template == null)
 				{
 					return;
 				}
-				FItem item = new FItem(dbItem.ID, dbItem.Seed, template, dbItem.Amount);
+				Item item = new Item(dbItem.ID, dbItem.Seed, template, dbItem.Amount);
 				if (item == null)
 				{
 					return;
 				}
-				character.BankController.SetItemSlot(item, dbItem.Slot);
+				bankController.SetItemSlot(item, dbItem.Slot);
 			};
 		}
 	}

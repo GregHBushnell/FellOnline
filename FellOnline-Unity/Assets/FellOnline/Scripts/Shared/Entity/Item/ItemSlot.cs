@@ -10,4 +10,10 @@
 		Primary,
 		Secondary,
 	}
+
+	public enum WeaponEquipStyle : byte
+	{
+		OneHanded = 0,
+		DualWield,
+	}
 }

@@ -11,13 +11,13 @@ using FellOnline.Client;
 #endif
 namespace FellOnline.Shared
 {
-[RequireComponent(typeof(Character))]
-public class CharacterAppearanceController : NetworkBehaviour
+
+public class CharacterAppearanceController : CharacterBehaviour
 {
-public Character Character;
+
 public CharacterAppearanceDetails AppearanceDetails;
 [SerializeField]
-public readonly  SyncVar<CharacterAppearanceDetails> _appearanceDetails = new SyncVar<CharacterAppearanceDetails>(new SyncTypeSetting()
+public readonly  SyncVar<CharacterAppearanceDetails> _appearanceDetails = new SyncVar<CharacterAppearanceDetails>(new SyncTypeSettings()
 {
     SendRate = 0.0f,
     Channel = Channel.Unreliable,
@@ -44,7 +44,8 @@ public Transform hairVisualParent = null;
                         if (renderer != null)
                         {
                             renderer.enabled = true;
-                            Color hcolor = FHex.ToColor(next.HairColor.ToString());
+                            string hairColorHex = Hex.ToHex(next.HairColor);
+                            Color hcolor = Hex.ToColor(hairColorHex);
                             hcolor.a = 1;
                              renderer.material.SetColor("_BaseColor",hcolor);
                         }else{
@@ -57,7 +58,7 @@ public Transform hairVisualParent = null;
         }
         if(prev.SkinColor != next.SkinColor)
         {
-             Color scolor = FHex.ToColor(next.SkinColor.ToString());
+             Color scolor = Hex.ToColor(next.SkinColor.ToString());
              scolor.a = 1;
              hairVisualParent.GetComponent<SkinnedMeshRenderer>().material.SetColor("_BaseColor",scolor);
         }
@@ -104,7 +105,7 @@ public Transform hairVisualParent = null;
 #endif
 
     #if !UNITY_SERVER
-private void Awake()
+public override void OnAwake()
 		{
 			//HairID.OnChange += OnHairIDChanged;
             _appearanceDetails.OnChange += _OnappearanceDetailsChanged;
@@ -123,7 +124,7 @@ private void Awake()
             // }
 		}
 
-		private void OnDestroy()
+		public override void OnDestroying()
 		{
             _appearanceDetails.OnChange -= _OnappearanceDetailsChanged;
 		}

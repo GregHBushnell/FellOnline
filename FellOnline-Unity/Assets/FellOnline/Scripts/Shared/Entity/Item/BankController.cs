@@ -1,16 +1,15 @@
-using FishNet.Transporting;
-using UnityEngine;
+﻿using FishNet.Transporting;
+#if !UNITY_SERVER
+using static FellOnline.Client.Client;
+#endif
 
 namespace FellOnline.Shared
 {
-	[RequireComponent(typeof(Character))]
-	public class BankController : FItemContainer
+	public class BankController : ItemContainer
 	{
-		public Character Character;
-
 		public long Currency = 0;
 
-		private void Awake()
+		public override void OnAwake()
 		{
 			AddSlots(null, 100);
 		}
@@ -50,7 +49,7 @@ namespace FellOnline.Shared
 		/// </summary>
 		private void OnClientBankSetItemBroadcastReceived(BankSetItemBroadcast msg, Channel channel)
 		{
-			FItem newItem = new FItem(msg.instanceID, msg.seed, msg.templateID, msg.stackSize);
+			Item newItem = new Item(msg.instanceID, msg.seed, msg.templateID, msg.stackSize);
 			SetItemSlot(newItem, msg.slot);
 		}
 
@@ -61,7 +60,7 @@ namespace FellOnline.Shared
 		{
 			foreach (BankSetItemBroadcast subMsg in msg.items)
 			{
-				FItem newItem = new FItem(subMsg.instanceID, subMsg.seed, subMsg.templateID, subMsg.stackSize);
+				Item newItem = new Item(subMsg.instanceID, subMsg.seed, subMsg.templateID, subMsg.stackSize);
 				SetItemSlot(newItem, subMsg.slot);
 			}
 		}
@@ -83,16 +82,16 @@ namespace FellOnline.Shared
 			switch (msg.fromInventory)
 			{
 				case InventoryType.Inventory:
-					if (Character.InventoryController != null &&
-						Character.InventoryController.TryGetItem(msg.from, out FItem inventoryItem))
+					if (Character.TryGet(out InventoryController inventoryController) &&
+						inventoryController.TryGetItem(msg.from, out Item inventoryItem))
 					{
-						if (TryGetItem(msg.to, out FItem bankItem))
+						if (TryGetItem(msg.to, out Item bankItem))
 						{
-							Character.InventoryController.SetItemSlot(bankItem, msg.from);
+							inventoryController.SetItemSlot(bankItem, msg.from);
 						}
 						else
 						{
-							Character.InventoryController.SetItemSlot(null, msg.from);
+							inventoryController.SetItemSlot(null, msg.from);
 						}
 
 						SetItemSlot(inventoryItem, msg.to);
@@ -127,17 +126,19 @@ namespace FellOnline.Shared
 
 		public void SendSwapItemSlotsRequest(int from, int to, InventoryType fromInventory)
 		{
+#if !UNITY_SERVER
 			if (fromInventory == InventoryType.Bank &&
 				from == to)
 			{
 				return;
 			}
-            ClientManager.Broadcast(new BankSwapItemSlotsBroadcast()
+			Broadcast(new BankSwapItemSlotsBroadcast()
 			{
 				from = from,
 				to = to,
 				fromInventory = fromInventory,
 			}, Channel.Reliable);
+#endif
 		}
 	}
 }

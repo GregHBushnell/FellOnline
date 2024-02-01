@@ -4,11 +4,11 @@ using UnityEngine;
 namespace FellOnline.Shared
 {
 	[CreateAssetMenu(fileName = "New World Item", menuName = "FellOnline/Item/WorldItem", order = 1)]
-	public class WorldItemTemplate : FCachedScriptableObject<WorldItemTemplate>, FICachedObject
+	public class WorldItemTemplate : CachedScriptableObject<WorldItemTemplate>, ICachedObject
 	{
 		public Sprite icon;
 		public string Description;
-		public FBaseItemTemplate Item;
+		public BaseItemTemplate Item;
 
 		public uint amount=1;
 

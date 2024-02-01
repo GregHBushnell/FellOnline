@@ -34,16 +34,28 @@ namespace FellOnline.Shared
 		private bool _crouchInputActive = false;
 		private bool _sprintInputActive = false;
 
-		void Awake()
+		private void Awake()
 		{
-			KinematicCharacterSystem.EnsureCreation();
+			Motor = gameObject.GetComponent<KinematicCharacterMotor>();
 
-			//Quang: Using manual simultion instead of KCC auto simulation
-			KinematicCharacterSystem.Settings.AutoSimulation = false;
+			CharacterController = gameObject.GetComponent<FellCController>();
+			CharacterController.Motor = Motor;
+			Motor.CharacterController = CharacterController;
+
+			FellPlayer player = gameObject.GetComponent<FellPlayer>();
+			player.CharacterController = CharacterController;
+			player.Motor = Motor;
+
+			Rigidbody rb = GetComponent<Rigidbody>();
+			if (rb != null)
+			{
+				rb.isKinematic = true;
+			}
 		}
 		public override void OnStartNetwork()
 		{
-			//Quang: Subscribe to tick event, this will replace FixedUpdate
+			base.OnStartNetwork();
+
 			if (base.TimeManager != null)
 			{
 				base.TimeManager.OnTick += TimeManager_OnTick;
@@ -52,6 +64,7 @@ namespace FellOnline.Shared
 
 		public override void OnStopNetwork()
 		{
+			base.OnStopNetwork();
 			if (base.TimeManager != null)
 			{
 				base.TimeManager.OnTick -= TimeManager_OnTick;
@@ -74,28 +87,6 @@ namespace FellOnline.Shared
 					}
 				}
 			}
-			//Quang: The remote client objects must not have movement related 
-			//logic code, destroy it. Network transform will handle the movements
-			/*else
-			{
-				KinematicCharacterMotor motor = GetComponent<KinematicCharacterMotor>();
-				if (motor != null)
-				{
-					motor.enabled = false;
-				}
-				
-				FellCController controller = GetComponent<FellCController>();
-				
-				if (controller != null)
-				{
-					controller.enabled = false;
-				}
-				Rigidbody rb = GetComponent<Rigidbody>();
-				if (rb != null)
-				{
-					rb.isKinematic = true;
-				}
-			}*/
 		}
 #endif
 		private void TimeManager_OnTick()
@@ -118,7 +109,8 @@ namespace FellOnline.Shared
 			{
 				return default;
 			}
-			/*if (!CanUpdateInput())
+			/*
+			if (!CanUpdateInput())
 			{
 				FKCCInputReplicateData characterInputs = default;
 
@@ -143,24 +135,22 @@ namespace FellOnline.Shared
 				moveFlags.EnableBit(KCCMoveFlags.Sprint);
 			}
 
-			return new FKCCInputReplicateData(FInputManager.GetAxis(VerticalInput),
-											 FInputManager.GetAxis(HorizontalInput),
+			return new FKCCInputReplicateData(InputManager.GetAxis(VerticalInput),
+											 InputManager.GetAxis(HorizontalInput),
 											 moveFlags);
 
 											 
 		}
 
-		[ReplicateV2]
+		[Replicate]
 		private void Replicate(FKCCInputReplicateData input, ReplicateState state = ReplicateState.Invalid, Channel channel = Channel.Unreliable)
 		{
+			if (state == ReplicateState.Future)
+				return;
 			CharacterController.SetInputs(ref input);
 
-			SimulateMotor((float)base.TimeManager.TickDelta);
-		}
-
-
-		private void SimulateMotor(float deltaTime)
-		{
+		float deltaTime = (float)base.TimeManager.TickDelta;
+		
 			Motor.UpdatePhase1(deltaTime);
 			Motor.UpdatePhase2(deltaTime);
 
@@ -168,7 +158,7 @@ namespace FellOnline.Shared
 			Motor.SetPositionAndRotation(Motor.TransientPosition, Motor.TransientRotation);
 		}
 
-		[ReconcileV2]
+		[Reconcile]
 		private void Reconcile(KinematicCharacterMotorState rd, Channel channel = Channel.Unreliable)
 		{
 			//Quang: Note - KCCMotorState has Rigidbody field, this component is not serialized, 
@@ -183,14 +173,14 @@ namespace FellOnline.Shared
 				return;
 			}
 			
-				if (FInputManager.GetKeyDown(JumpInput) && !CharacterController.IsJumping)
+				if (InputManager.GetKeyDown(JumpInput) && !CharacterController.IsJumping)
 			{
 				_jumpQueued = true;
 			}
 
-			_crouchInputActive = FInputManager.GetKey(CrouchInput);
+			_crouchInputActive = InputManager.GetKey(CrouchInput);
 
-			_sprintInputActive = FInputManager.GetKey(RunInput);
+			_sprintInputActive = InputManager.GetKey(RunInput);
 		}
 
 		private void LateUpdate()
@@ -214,7 +204,7 @@ namespace FellOnline.Shared
 			float scrollInput = 0.0f;
 #if !UNITY_WEBGL
 			
-				scrollInput = -FInputManager.GetAxis(MouseScrollInput);
+				scrollInput = -InputManager.GetAxis(MouseScrollInput);
 			
 #endif
 			if (CharacterCamera == null)

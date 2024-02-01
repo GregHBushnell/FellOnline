@@ -5,7 +5,7 @@ using FellOnline.Shared;
 
 namespace FellOnline.Client
 {
-	public class UIBank : FUICharacterControl
+	public class UIBank : UICharacterControl
 	{
 		public RectTransform content;
 		public UIBankButton buttonPrefab;
@@ -48,7 +48,7 @@ namespace FellOnline.Client
 
 		private void OnClientBankerBroadcastReceived(BankerBroadcast msg, Channel channel)
 		{
-			if (FUIManager.TryGet("UIBank", out UIBank bank))
+			if (UIManager.TryGet("UIBank", out UIBank bank))
 			{
 				bank.Show();
 			}
@@ -56,9 +56,10 @@ namespace FellOnline.Client
 
 		public override void OnPreSetCharacter()
 		{
-			if (Character != null)
+			if (Character != null &&
+				Character.TryGet(out BankController bankController))
 			{
-				Character.BankController.OnSlotUpdated -= OnBankSlotUpdated;
+				bankController.OnSlotUpdated -= OnBankSlotUpdated;
 			}
 		}
 
@@ -69,24 +70,24 @@ namespace FellOnline.Client
 			if (Character == null ||
 				content == null ||
 				buttonPrefab == null ||
-				Character.BankController == null)
+				!Character.TryGet(out BankController bankController))
 			{
 				return;
 			}
 
 			// destroy the old slots
-			Character.BankController.OnSlotUpdated -= OnBankSlotUpdated;
+			bankController.OnSlotUpdated -= OnBankSlotUpdated;
 			DestroySlots();
 
 			// generate new slots
 			bankSlots = new List<UIBankButton>();
-			for (int i = 0; i < Character.BankController.Items.Count; ++i)
+			for (int i = 0; i < bankController.Items.Count; ++i)
 			{
 				UIBankButton button = Instantiate(buttonPrefab, content);
 				button.Character = Character;
 				button.ReferenceID = i;
-				button.Type = FReferenceButtonType.Bank;
-				if (Character.BankController.TryGetItem(i, out FItem item))
+				button.Type = ReferenceButtonType.Bank;
+				if (bankController.TryGetItem(i, out Item item))
 				{
 					if (button.Icon != null)
 					{
@@ -100,10 +101,10 @@ namespace FellOnline.Client
 				bankSlots.Add(button);
 			}
 			// update our buttons when the bank slots change
-			Character.BankController.OnSlotUpdated += OnBankSlotUpdated;
+			bankController.OnSlotUpdated += OnBankSlotUpdated;
 		}
 
-		public void OnBankSlotUpdated(FItemContainer container, FItem item, int bankIndex)
+		public void OnBankSlotUpdated(ItemContainer container, Item item, int bankIndex)
 		{
 			if (bankSlots == null)
 			{
@@ -114,7 +115,7 @@ namespace FellOnline.Client
 			{
 				// update our button display
 				UIBankButton button = bankSlots[bankIndex];
-				button.Type = FReferenceButtonType.Bank;
+				button.Type = ReferenceButtonType.Bank;
 				if (button.Icon != null)
 				{
 					button.Icon.sprite = item.Template.Icon;
